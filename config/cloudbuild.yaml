@@ -1,0 +1,12 @@
+steps:
+- name: 'gcr.io/cloud-builders/docker'
+  args: [
+    'build',
+    '-t', '$_TAG',
+    '-f', '$_DOCKERFILE',
+    '--build-arg', 'MODEL_VERSION_ARG=$_M_VERSION',
+    '--build-arg', 'PROJECT_ID_ARG=$_PROJECT_ID',
+    '.'
+  ]
+images:
+- '$_TAG'

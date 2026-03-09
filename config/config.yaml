@@ -1,0 +1,57 @@
+project:
+  id: 'testcase-488513'
+  name: 'testcase'
+  region: 'europe-west3'
+  number: '685212786650'
+models:
+  llama-3.2-fastapi:
+    image:
+      repository-name: 'inference-repository'
+      image-name: 'inference-image'
+      dockerfile: 'Dockerfile.fastapi'
+    registry-id: '8270003096596250624'
+    storage:
+      bucket: 'gcp-ml-models'
+      relative-path: 'meta-llama-Llama-3.2-3B-Instruct'
+    endpoint:
+      name: 'Inf-endpt-llama3.2-3b-fastapi'
+      id: '3631838639148761088'
+      is-dedicated: true
+    inference:
+      max_model_length: 2048
+      max_new_tokens: 600
+  llama-3.2-vllm:
+    image:
+      repository-name: 'inference-repository'
+      image-name: 'vllm-image'
+      dockerfile: 'Dockerfile.vllm'
+    registry-id: '3698286524861775872'
+    storage:
+      bucket: 'gcp-ml-models'
+      relative-path: 'meta-llama-Llama-3.2-3B-Instruct'
+    endpoint:
+      name: 'Inf-endpt-llama3.2-3b-vllm'
+      id: '5339547322852311040'
+      is-dedicated: true
+    inference:
+      max_model_length: 2048
+      max_new_tokens: 512
+compute:
+  l4x2:
+    machine_type: 'g2-standard-24'
+    accelerator_type: 'nvidia-l4'
+  l4:
+    machine_type: 'g2-standard-8'
+    accelerator_type: 'nvidia-l4'
+  v100-small:
+    machine_type: 'n1-standard-4'
+    accelerator_type: 'nvidia-tesla-v100'
+  v100:
+    machine_type: 'n1-standard-8'
+    accelerator_type: 'nvidia-tesla-v100'
+  a100-40g:
+    machine_type: 'a2-highgpu-1g'
+    accelerator_type: 'nvidia-tesla-a100'
+  a100-40g:
+    machine_type: 'a2-ultragpu-1g'
+    accelerator_type: 'nvidia-a100-80gb'
