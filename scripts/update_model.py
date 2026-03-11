@@ -15,6 +15,9 @@ if __name__ == "__main__":
 
     with open(os.path.join('config', 'config.yaml'), 'r') as file:
         config = yaml.safe_load(file)
+    with open(os.path.join('config', '.env.yaml'), 'r') as file:
+        project = yaml.safe_load(file)['project']
+
     model_config = config['models'][args.model_name]
     model_bucket = model_config['storage']['bucket']
     model_path = model_config['storage']['relative-path']
@@ -22,8 +25,8 @@ if __name__ == "__main__":
     image_repo_name = model_config['image']['repository-name']
     image_name = model_config['image']['image-name']
     inference_config = model_config['inference']
-    project_id = config['project']['id']
-    region = config['project']['region']
+    project_id = project['id']
+    region = project['region']
 
     aiplatform.init(project=project_id, location=region)
     invoke_enabled_model = aiplatform.Model.upload(

@@ -13,10 +13,16 @@ import uvicorn
 import argparse
 from datetime import datetime
 import vllm
+import subprocess
 from vllm.engine.arg_utils import AsyncEngineArgs
 from vllm.engine.async_llm_engine import AsyncLLMEngine
 from vllm.sampling_params import SamplingParams
 from vllm.utils import random_uuid
+try:
+    import pynvml
+except ImportError:
+    pynvml = None
+    print("pynvml not installed. Some details (NVLink) will be missing.")
 from src.commons import get_endpoint_paths, UserMetrics
 from src.inference.utils import HealthCheck, download_gcs_folder, format_prompt, export_profile_gcp
 
@@ -53,14 +59,51 @@ args = parser.parse_args()
 print(f'Model generation parameters:\n\
 MAX_MODEL_LENGTH {MAX_MODEL_LENGTH}\n\
 MAX_NEW_TOKENS {MAX_NEW_TOKENS}')
+
+print("==== GPUs Overview ====")
+num_gpus = torch.cuda.device_count()
+print(f"Number of GPUs: {num_gpus}\n")
+for i in range(num_gpus):
+    props = torch.cuda.get_device_properties(i)
+    print(f"GPU {i}: {props.name}")
+    print(f"  Total Memory: {props.total_memory / 1e9:.2f} GB")
+    print(f"  Compute Capability: {props.major}.{props.minor}")
+    print(f"  Multi-Processor Count: {props.multi_processor_count}")
+    print(f"  CUDA Device Index: {i}\n")
+
+if pynvml:
+    try:
+        pynvml.nvmlInit()
+        labels = {
+            pynvml.NVML_TOPOLOGY_INTERNAL:   "NVLink (same board)",
+            pynvml.NVML_TOPOLOGY_SINGLE:     "PIX - same PCIe switch",
+            pynvml.NVML_TOPOLOGY_MULTIPLE:   "PXB - multiple PCIe switches",
+            pynvml.NVML_TOPOLOGY_HOSTBRIDGE: "PHB - PCIe host bridge",
+            pynvml.NVML_TOPOLOGY_CPU:        "CPU - same NUMA/CPU",
+            pynvml.NVML_TOPOLOGY_SYSTEM:     "SYS - cross-socket",
+        }
+
+        print("NVML topology")
+        for i in range(num_gpus):
+            for j in range(i + 1, num_gpus):
+                handle_i = pynvml.nvmlDeviceGetHandleByIndex(i)
+                handle_j = pynvml.nvmlDeviceGetHandleByIndex(j)
+                level = pynvml.nvmlDeviceGetTopologyCommonAncestor(handle_i, handle_j)
+                print(f"GPU{i} <-> GPU{j}: {labels.get(level, level)}")
+        pynvml.nvmlShutdown()
+    except pynvml.NVMLError as e:
+        print("NVML error:", e)
+
 with open(os.path.join('config', 'config.yaml'), 'r') as file:
     config = yaml.safe_load(file)
+with open(os.path.join('config', '.env.yaml'), 'r') as file:
+    project = yaml.safe_load(file)['project']
 
 endpoint_path, resource_path = get_endpoint_paths(
     config['models'][MODEL_NAME]['endpoint'],
-    config['project']['number'],
-    config['project']['region'],
-    config['project']['id']
+    project['number'],
+    project['region'],
+    project['id']
     )
 
 @asynccontextmanager

@@ -13,13 +13,16 @@ if __name__ == "__main__":
 
     with open(os.path.join('config', 'config.yaml'), 'r') as file:
         config = yaml.safe_load(file)
+    with open(os.path.join('config', '.env.yaml'), 'r') as file:
+        project = yaml.safe_load(file)['project']
+
     image_config = config['models'][args.model_name]['image']
     project_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-    tag = f'{config["project"]["region"]}-docker.pkg.dev/{config["project"]["id"]}/{image_config["repository-name"]}/{image_config["image-name"]}:latest'
+    tag = f'{project["region"]}-docker.pkg.dev/{project["id"]}/{image_config["repository-name"]}/{image_config["image-name"]}:latest'
     config_file = os.path.join(project_root, 'config', 'cloudbuild.yaml')
     shell_string = f'gcloud builds submit {project_root} \
 --substitutions=_M_VERSION={args.model_version},_TAG={tag},\
-_DOCKERFILE={image_config["dockerfile"]},_PROJECT_ID={config["project"]["id"]} \
+_DOCKERFILE={image_config["dockerfile"]},_PROJECT_ID={project["id"]} \
 --config {config_file}'
     try:
         subprocess.run(shell_string, shell=True, check=True)
