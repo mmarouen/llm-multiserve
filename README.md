@@ -1,4 +1,4 @@
-# 🚀 inference-gateway
+# 🚀 llm-multiserve
 
 A FastAPI-based LLM serving layer with pluggable inference backends, custom routing, and GCP deployment support.
 
@@ -6,7 +6,7 @@ A FastAPI-based LLM serving layer with pluggable inference backends, custom rout
 
 ## Overview
 
-`inference-gateway` is a unified serving interface for large language models. It abstracts over multiple inference engines behind a single FastAPI application, letting you swap backends without changing your API surface.
+`llm-multiserve` is a unified serving interface for large language models. It abstracts over multiple inference engines behind a single FastAPI application, letting you swap backends without changing your API surface.
 
 **Key features:**
 
@@ -21,9 +21,9 @@ A FastAPI-based LLM serving layer with pluggable inference backends, custom rout
 ## Architecture
 
 ```
-inference-gateway/
+llm-multiserve/
 ├── serve.py                  # Single entrypoint — starts the FastAPI app
-├── app/
+├── src/
 │   ├── main.py               # App factory, middleware, lifespan
 │   ├── routers/              # Custom route definitions
 │   │   ├── completions.py
