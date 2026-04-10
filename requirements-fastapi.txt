@@ -1,8 +1,0 @@
-huggingface
-huggingface_hub
-peft
-accelerate
-google-cloud-storage
-google-cloud-logging
-numpy
-uvicorn
