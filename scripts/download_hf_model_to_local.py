@@ -3,7 +3,7 @@ from google.cloud import storage
 from huggingface_hub import snapshot_download
 
 model_id = "meta-llama/Llama-3.1-8B-Instruct"
-token_id = 'REMOVED'
+token_id = ''
 local_model_parent = '/Users/marouenazzouz/Documents/clean_models'
 model_name_folder = model_id.replace("/", "-")
 local_model_dir = os.path.join(local_model_parent, model_name_folder)
