@@ -1,21 +1,20 @@
-FROM us-docker.pkg.dev/vertex-ai/vertex-vision-model-garden-dockers/pytorch-vllm-serve:latest
-
+FROM us-docker.pkg.dev/deeplearning-platform-release/gcr.io/pytorch-cu124.2-4.py310
 WORKDIR /app
-
 ARG MODEL_VERSION_ARG
 ARG PROJECT_ID_ARG
-
 ENV PYTHONUNBUFFERED=1
 ENV MODEL_VERSION=$MODEL_VERSION_ARG
 ENV GOOGLE_CLOUD_PROJECT=$PROJECT_ID_ARG
 
-COPY requirements-vllm.txt .
+COPY requirements-pytorch.txt .
 
+# Override index
 RUN pip install --no-cache-dir \
     --index-url https://pypi.org/simple \
     --trusted-host pypi.org \
     --trusted-host files.pythonhosted.org \
-    -r requirements-vllm.txt
+    -r requirements-pytorch.txt
 
 COPY . .
+
 ENTRYPOINT ["sh", "-c", "python serve.py --model-version ${MODEL_VERSION}"]

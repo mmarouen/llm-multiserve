@@ -1,0 +1,29 @@
+FROM nvcr.io/nvidia/tritonserver:25.08-trtllm-python-py3
+
+WORKDIR /app
+
+ARG MODEL_VERSION_ARG
+ARG PROJECT_ID_ARG
+
+ENV PYTHONUNBUFFERED=1
+ENV MODEL_VERSION=$MODEL_VERSION_ARG
+ENV GOOGLE_CLOUD_PROJECT=$PROJECT_ID_ARG
+
+COPY requirements-trtllm.txt .
+
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    nginx \
+    && rm -rf /var/lib/apt/lists/*
+
+RUN pip install --no-cache-dir \
+    --index-url https://pypi.org/simple \
+    --trusted-host pypi.org \
+    --trusted-host files.pythonhosted.org \
+    -r requirements-trtllm.txt
+COPY . .
+ENTRYPOINT ["sh", "-c", "python3 serve.py --model-version ${MODEL_VERSION}"]
+#COPY nginx.conf /etc/nginx/nginx.conf
+#COPY entrypoint-nginx.sh /entrypoint.sh
+#COPY . .
+
+#ENTRYPOINT ["sh", "/entrypoint.sh"]

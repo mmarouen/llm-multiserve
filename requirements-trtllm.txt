@@ -1,0 +1,8 @@
+#transformers
+peft
+accelerate
+#numpy
+uvicorn
+google-cloud-aiplatform
+google-cloud-storage
+google-cloud-logging

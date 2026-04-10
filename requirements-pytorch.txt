@@ -6,4 +6,3 @@ google-cloud-logging
 numpy
 uvicorn
 nvidia-ml-py3
-google-cloud-aiplatform
