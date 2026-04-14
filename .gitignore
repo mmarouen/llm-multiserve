@@ -2,4 +2,5 @@ traces
 **/__pycache__/**
 config/config.yaml
 config/.env.yaml
+config/build-trtllm-model.yaml
 
