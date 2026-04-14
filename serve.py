@@ -85,41 +85,6 @@ app = FastAPI(
 async def health():
     return await globals.health_checker()
 
-if SERVING == 'vllm':
-    @app.post("/start_profiling")
-    async def start_profiling():
-        global is_profiling
-        if not TORCH_PROFILING:
-            return {"status": "error", "message": "PROFILE_RUN environment variable is not True"}
-        if is_profiling:
-            return {"status": "ignored", "message": "Profiling is already running"}
-
-        loop = asyncio.get_event_loop()
-        await loop.run_in_executor(None, globals.engine.engine.model_executor.start_profile)
-
-        print("Profiler started")
-        is_profiling = True
-        return {"status": "success", "message": "Profiling started"}
-
-    @app.post("/stop_profiling")
-    async def stop_profiling(background_tasks: BackgroundTasks):
-        global is_profiling
-        if not is_profiling:
-            return {"status": "ignored", "message": "Profiling is not currently running"}
-
-        loop = asyncio.get_event_loop()
-        await loop.run_in_executor(None, globals.engine.engine.model_executor.stop_profile)
-        print("Profiler stopped")
-        is_profiling = False
-        
-        background_tasks.add_task(
-            export_profile_gcp,
-            gs_bucket=config['models'][MODEL_NAME]['storage']['bucket'],
-            gs_relative_path=PROFILE_OUTPUT_FOLDER,
-            profile_folder=PROFILER_LOCAL_FOLDER
-        )
-        return {"status": "success", "message": f"Profiling stopped. Traces uploading to {PROFILE_OUTPUT_FOLDER} in background."}
-
 prediction_fnc = predict_fn(serving=SERVING, max_new_tokens=MAX_NEW_TOKENS)
 @app.post('/predict')
 async def predict(request: Request):
