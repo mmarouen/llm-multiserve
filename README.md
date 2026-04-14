@@ -24,157 +24,107 @@ A FastAPI-based LLM serving layer with pluggable inference backends, custom rout
 llm-multiserve/
 ├── serve.py                  # Single entrypoint — starts the FastAPI app
 ├── src/
-│   ├── main.py               # App factory, middleware, lifespan
-│   ├── routers/              # Custom route definitions
-│   │   ├── completions.py
-│   │   ├── chat.py
-│   │   └── health.py
-│   ├── engines/              # Engine abstractions
-│   │   ├── base.py           # Abstract engine interface
-│   │   ├── vllm_engine.py
-│   │   ├── pytorch_engine.py
-│   │   └── trtllm_engine.py
-│   └── config.py             # Engine selection + runtime config
-├── docker/
+│   ├── api.py                # App factory, middleware, lifespan
+│   ├── gcp_utils.py          # Manages gcp resources
+│   ├── globals.py            # defines app-wide variables
+│   ├── health_check.py       # health check function
+│   ├── inference.py          # completions generation, prompt formatting
+│   ├── metrics.py            # metric class
+│   ├── observability.py      # Collects gpu information
+│   ├── trtllm_utils.py       # backend specific utils: trtllm
+│   └── vllm_utils.py         # backend specific utils: vllm
+├── docker/                   # docker folder containing builds for different backends
 │   ├── Dockerfile.vllm
 │   ├── Dockerfile.pytorch
 │   └── Dockerfile.trtllm
-└── deploy/
-    └── gcp/                  # GCP endpoint configs
+└── requirements/
+│   ├── pytorch.txt
+│   ├── trtllm.txt
+│   └── vllm.txt
+└── config/
+│   ├── .env.yaml                 # !HIDDEN FILE: project information (hidden file)
+│   ├── config.yaml               # !HIDDEN FILE: project config information (endpoint ids, storage ids, model repositories...)
+│   ├── build-trtllm-model.yaml   # !HIDDEN FILE: trtllm server information
+│   ├── nginx.conf                # nginx server config in case needed
+│   └── cloudbuild.yaml           # buildfile containing some basic arguments
+└── ci/
+│   ├── build_triton_entrypoint_dp.sh             # triton server deployment in a data parallel config. better enable nginx server
+│   ├── build_triton_entrypoint_tp.sh             # triton server deployment in a tensor parallel config
+│   ├── build_trt_engine.sh                       # building tensorrt_llm engine and upload to gcp
+│   ├── deploy_inference_endpoint.sh              # main script that deploys the inference endpoint
+│   └── entrypoint-nginx                          # used in the triton server docker image in a data parallel setup
+
 ```
 
 ---
 
-## Inference Engines
+## Getting Started
 
-Each engine has its own Docker image and implements the same base interface defined in `engines/base.py`. The active engine is selected at startup via the `INFERENCE_ENGINE` environment variable.
+The repository serves `meta-llama/Llama-3.2-3B-Instruct` on 3 different inference engines on gcp endpoint.\
+Each engine has its own docker image and implements the same base interface defined in `src/api.py`.\
+All engines running on a fastapi http server via the single entrypoint `serve.py`:
+| Engine/Model | Requirements file | Docker file | Best For |
+|---|---|---|--|
+| `llama-3.2-vllm` | `requirements/vllm.txt` | `docker/Dockerfile.vllm` | High-throughput, continuous batching |
+| `llama-3.2-pytorch` | `requirements/pytorch.txt` | `docker/Dockerfile.pytorch` | Flexibility, research, custom models |
+| `llama-3.2-trtllm` | `requirements/trtllm.txt` | `docker/Dockerfile.trtllm` | Low-latency, optimized NVIDIA inference |
 
-| Engine | Image | Best For |
-|---|---|---|
-| `vllm` | `Dockerfile.vllm` | High-throughput, continuous batching |
-| `pytorch` | `Dockerfile.pytorch` | Flexibility, research, custom models |
-| `trtllm` | `Dockerfile.trtllm` | Low-latency, optimized NVIDIA inference |
+ps: All models are loading a huggingface [`meta-llama/Llama-3.2-3B-Instruct`](https://huggingface.co/meta-llama/Llama-3.2-3B-Instruct)\
+Access to the model is only allowed after authorization grant. For more information refer to the huggingface documentation.
 
-Set the engine at runtime:
+(!) Building and deploying the model is only possible after setting up the config files and the gcp environment with proper access rights.\
+In particular:
+- `gcp-bucket`: GCP storage bucket to contain
+- `artifact registry`: to host the docker image
+- `model repository`: to create the model + docker image instance
+- `inference endpoint`: to deploy the model selected from the repository
+Each of these resources need to be properly provisioned along with its dependencies. For example, gpu resources need to be assigned to the inference endpoint to host and run inferences.\
+Project config details are hidden because containing sensitive resource ids. However, a [dummy config file](config/dummy-config.yaml) is provided for reference.\
+Once all access and credentials are properly set, fill up the dummy config and copy it to config.yaml.
 
-```bash
-INFERENCE_ENGINE=vllm python serve.py
-INFERENCE_ENGINE=trtllm python serve.py
-```
-
----
+--- 
 
 ## Entrypoint
 
-All serving starts from `serve.py`:
+Deploying the entrypoint is done through the `ci/deploy_inference_endpoint.zsh` script.\
+Before proceeding with the script, ensure gcloud cli is installed and pointing to the project.\
+An example run is as follows
 
 ```bash
-python serve.py \
-  --engine vllm \
-  --model mistralai/Mistral-7B-Instruct-v0.2 \
-  --host 0.0.0.0 \
-  --port 8080
+./deploy_inference_endpoint.zsh \
+--region europe-west4 \ 
+--model llama-3.2-trtllm \
+--update 2
 ```
 
 Key flags:
 
 | Flag | Default | Description |
 |---|---|---|
-| `--engine` | `vllm` | Inference backend to use |
-| `--model` | — | Model name or path |
-| `--host` | `0.0.0.0` | Bind host |
-| `--port` | `8080` | Bind port |
-| `--workers` | `1` | Uvicorn workers |
+| `--region` | `europe-west4` | EU region to host the model repository and deploy the inference endpoint |
+| `--model` | `llama-3.2-trtllm` | backend name, refer to Getting started section |
+| `--update` | `0` | Level of update: `2` rebuilds all the pipeline, `1` rebuilds the model repository and deploys, `0` only deploys the endpoint |
 
 ---
 
 ## API Routes
 
-The gateway exposes OpenAI-compatible endpoints by default, plus custom routes.
+The gateway exposes the following simple API.\
+Deploying triton server exposes different APIs.
 
 | Method | Path | Description |
 |---|---|---|
 | `GET` | `/health` | Health check |
-| `GET` | `/readiness` | Readiness probe (engine loaded) |
-| `POST` | `/v1/completions` | Text completions |
-| `POST` | `/v1/chat/completions` | Chat completions |
-| `GET` | `/v1/models` | List available models |
-
-Custom routes can be added under `app/routers/`.
-
----
-
-## Docker
-
-Each engine has its own image. Build the one you need:
-
-```bash
-# vLLM
-docker build -f docker/Dockerfile.vllm -t inference-gateway:vllm .
-
-# PyTorch
-docker build -f docker/Dockerfile.pytorch -t inference-gateway:pytorch .
-
-# TensorRT-LLM
-docker build -f docker/Dockerfile.trtllm -t inference-gateway:trtllm .
-```
-
-Run a container:
-
-```bash
-docker run --gpus all -p 8080:8080 \
-  -e INFERENCE_ENGINE=vllm \
-  -e MODEL_NAME=mistralai/Mistral-7B-Instruct-v0.2 \
-  inference-gateway:vllm
-```
-
----
-
-## GCP Deployment
-
-The service is designed for deployment on **GCP inference endpoints** (Vertex AI or Cloud Run GPU).
-
-Images are pushed to Artifact Registry and referenced in the endpoint config:
-
-```bash
-# Authenticate
-gcloud auth configure-docker <region>-docker.pkg.dev
-
-# Tag and push
-docker tag inference-gateway:vllm \
-  <region>-docker.pkg.dev/<project>/inference-gateway/vllm:<tag>
-
-docker push <region>-docker.pkg.dev/<project>/inference-gateway/vllm:<tag>
-```
-
-GCP endpoint configs live in `deploy/gcp/`. Environment variables for model and engine are injected via the endpoint spec.
-
----
-
-## Getting Started
-
-> _TODO: Add setup instructions, virtualenv/conda setup, and a quick local test._
-
----
-
-## Configuration
-
-> _TODO: Document full config schema (`config.py`), env vars, and model loading options._
-
----
-
-## Logging & Observability
-
-> _TODO: Add logging setup, Cloud Logging integration, and metrics._
+| `POST` | `predict` | Text completions |
 
 ---
 
 ## Contributing
 
-> _TODO: Add contribution guidelines._
+Reach out to [mmmarouen](https://github.com/mmarouen)
 
 ---
 
 ## License
 
-> _TODO: Add license._
+[LICENSE](LICENSE)
