@@ -17,7 +17,7 @@ ENV LOCAL_CHECKPOINT_DIR=/tmp/trtllm_checkpoint
 ENV LOCAL_MODEL_DIR=/tmp/trtllm_engines
 ENV LOCAL_HF_DIR=/tmp/hf_model_files
 
-COPY build_triton_entrypoint_tp.sh /build_triton_entrypoint_tp.sh
+COPY ci/build_triton_entrypoint_tp.sh /build_triton_entrypoint_tp.sh
 RUN chmod +x /build_triton_entrypoint_tp.sh
 
 ENTRYPOINT ["/build_triton_entrypoint_tp.sh"]

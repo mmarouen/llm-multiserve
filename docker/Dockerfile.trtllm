@@ -22,7 +22,7 @@ RUN pip install --no-cache-dir \
     -r requirements/trtllm.txt
 COPY . .
 ENTRYPOINT ["sh", "-c", "python3 serve.py --model-version ${MODEL_VERSION}"]
-#COPY nginx.conf /etc/nginx/nginx.conf
+#COPY config/nginx.conf /etc/nginx/nginx.conf
 #COPY entrypoint-nginx.sh /entrypoint.sh
 #COPY . .
 

@@ -18,7 +18,7 @@ ENV LOCAL_MODEL_DIR=/tmp/trtllm_engines
 ENV LOCAL_HF_DIR=/tmp/hf_model_files
 
 COPY config/config.yaml /config.yaml
-COPY build_trt_engine.sh /build_trt_engine.sh
+COPY ci/build_trt_engine.sh /build_trt_engine.sh
 RUN chmod +x /build_trt_engine.sh
 
 ENTRYPOINT ["/build_trt_engine.sh"]
